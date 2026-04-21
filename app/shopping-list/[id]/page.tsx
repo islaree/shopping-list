@@ -2,7 +2,7 @@
 
 import { Check, ChevronLeft, Ellipsis, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   DropdownMenu,
@@ -35,11 +35,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { CategoryManagement } from './category-management';
-import { useParams } from 'next/navigation';
-import { getLocalStorage, localStorageKey, setLocalStorage } from '@/lib/localStorage';
-import { ShoppingCategoryModel, ShoppingItemModel, ShoppingListModel } from '@/types/shopping-list';
+import { useParams, useRouter } from 'next/navigation';
+import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
 import { ShareDialog } from './share-dialog';
-import { useShoppingList } from '@//hooks/useShoppingList';
+import { useBoundStore } from '@/store/useBoundStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const modes = {
   CATEGORY_MANAGEMENT: 'category_management',
@@ -48,15 +48,41 @@ const modes = {
 
 export default function ShoppingListPage() {
   const params = useParams();
-  const [list, setList] = useState<ShoppingItemModel[]>([]);
-  const [categories, setCategories] = useState<ShoppingCategoryModel[]>([]); // shopping_category
+  const router = useRouter();
+  const sheetId = Array.isArray(params.id) ? params.id[0] : params.id;
+
   const [categoryValue, setCategoryValue] = useState<string | undefined>(undefined);
   const [value, setValue] = useState('');
   const [mode, setMode] = useState<(typeof modes)[keyof typeof modes]>(modes.CHECK_LIST);
-  const [title, setTitle] = useState('');
-  const [shareId, setShareId] = useState<string | null>(null); // shareId
   const [shareDialog, setShareDialog] = useState(false);
-  const { name, getShoppingList } = useShoppingList();
+
+  const {
+    sheet,
+    deleteSheet,
+    issueShareId,
+    addItem,
+    editItem,
+    deleteItem,
+    setItemCategory,
+    addCategory,
+    editCategory,
+    deleteCategory,
+    setCategories,
+  } = useBoundStore(
+    useShallow((state) => ({
+      sheet: state.sheets.find((s) => s.id === sheetId),
+      deleteSheet: state.deleteSheet,
+      issueShareId: state.issueShareId,
+      addItem: state.addItem,
+      editItem: state.editItem,
+      deleteItem: state.deleteItem,
+      setItemCategory: state.setItemCategory,
+      addCategory: state.addCategory,
+      editCategory: state.editCategory,
+      deleteCategory: state.deleteCategory,
+      setCategories: state.setCategories,
+    })),
+  );
 
   // TODO: 共有機能を追加
   const shareShoppingList = async (shareId: string) => {
@@ -67,11 +93,11 @@ export default function ShoppingListPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: params.id,
-          name: title,
-          items: list,
-          categories: categories,
-          shareId: shareId,
+          id: sheet?.id ?? sheetId ?? '',
+          name: sheet?.name ?? '',
+          items: sheet?.items ?? [],
+          categories: sheet?.categories ?? [],
+          shareId,
         }),
       });
     } catch (e) {
@@ -81,31 +107,10 @@ export default function ShoppingListPage() {
   };
 
   const handleShare = async () => {
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const target = data.find((d) => {
-      if (d.id === params.id) return d;
-    });
-    // shareIdがあればPOSTしない
-    if (target?.shareId) {
-      return;
-    }
-
-    const id = crypto.randomUUID();
-    setShareId(id);
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          shareId: id,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
-
-    shareShoppingList(id);
+    if (!sheetId || sheet?.shareId) return;
+    const id = issueShareId(sheetId);
+    if (!id) return;
+    await shareShoppingList(id);
   };
 
   // チェックリスト追加ダイアログ
@@ -115,178 +120,44 @@ export default function ShoppingListPage() {
   const handleAddItem = () => {
     setValue('');
     setCategoryValue(undefined);
-    const newList = [
-      ...list,
-      { id: crypto.randomUUID(), name: value, categoryId: categoryValue ?? null, checked: false },
-    ];
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          items: newList,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
-    const sorted = sortItemsByCategory(newList, categories);
-    setList(sorted);
+    if (!sheetId) return;
+    addItem(sheetId, { name: value, categoryId: categoryValue ?? null });
   };
 
   const handleEditItem = async (item: ShoppingItemModel) => {
-    const newList = list.map((l) => {
-      if (l.id === item.id) {
-        return item;
-      }
-      return l;
-    });
-    setList(newList);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          items: newList,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    editItem(sheetId, item);
   };
 
   const handleDeleteItem = (id: string) => {
-    const updatedList = list.filter((_) => _.id !== id);
-    setList(updatedList);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          items: updatedList,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    deleteItem(sheetId, id);
   };
 
   const handleSelectCategory = (categoryId: string | null, id: string) => {
-    const newList = list.map((l) => {
-      if (l.id === id) {
-        return { ...l, categoryId };
-      } else {
-        return l;
-      }
-    });
-
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          items: newList,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
-
-    const sorted = sortItemsByCategory(newList, categories);
-    setList(sorted);
+    if (!sheetId) return;
+    setItemCategory(sheetId, id, categoryId);
   };
 
   // カテゴリ操作
   const handleAddCategory = (newCategory: ShoppingCategoryModel) => {
-    const newCategories = [...categories, newCategory];
-    setCategories(newCategories);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          categories: newCategories,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    addCategory(sheetId, newCategory);
   };
 
   const handleUpdateCategories = (items: ShoppingCategoryModel[]) => {
-    setCategories(items);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          categories: items,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    setCategories(sheetId, items);
   };
 
   const handleDeleteCategory = (shoppingCategoryId: string) => {
-    const updatedItems = list.map((item) => {
-      if (item.categoryId === shoppingCategoryId) {
-        return { ...item, categoryId: null };
-      } else {
-        return item;
-      }
-    });
-    const updatedCategories = categories.filter((category) => category.id !== shoppingCategoryId);
-    const sorted = sortItemsByCategory(updatedItems, updatedCategories);
-    setList(sorted);
-    setCategories(updatedCategories);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          items: sorted,
-          categories: updatedCategories,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    deleteCategory(sheetId, shoppingCategoryId);
   };
 
   const handleEditCategory = (newItem: ShoppingCategoryModel) => {
-    const newCategories = categories.map((category) => {
-      if (category.id === newItem.id) return { ...category, name: newItem.name };
-      return category;
-    });
-    setCategories(newCategories);
-    const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-    if (!data) return;
-    const updateList = data.map((l) => {
-      if (l.id === params.id) {
-        return {
-          ...l,
-          categories: newCategories,
-        };
-      } else {
-        return l;
-      }
-    });
-    setLocalStorage(localStorageKey.SHOPPING_LIST, updateList);
+    if (!sheetId) return;
+    editCategory(sheetId, newItem);
   };
 
   const sortItemsByCategory = (
@@ -303,31 +174,29 @@ export default function ShoppingListPage() {
   };
 
   const sortItems = () => {
-    const sorted = sortItemsByCategory(list, categories);
-    setList(sorted);
+    // no-op: store側で常にソート済み
   };
 
-  // fetch shoppinglist data from localstorage
-  useEffect(() => {
-    const loadShoppingList = () => {
-      const data = getLocalStorage<ShoppingListModel[]>(localStorageKey.SHOPPING_LIST);
-      if (!data) return;
-      const shoppingList = data.find((d) => d.id === params.id);
-      if (!shoppingList) return;
-      setShareId(shoppingList.shareId);
-      setTitle(shoppingList.name);
-      setCategories(shoppingList.categories);
-      setList(() => sortItemsByCategory(shoppingList.items, shoppingList.categories));
-    };
-    loadShoppingList();
-  }, [params.id]);
-
-  useEffect(() => {
-    getShoppingList(params.id as string);
-  }, []);
+  const categories = sheet?.categories ?? [];
+  const list = useMemo(
+    () => sortItemsByCategory(sheet?.items ?? [], categories),
+    [sheet?.items, categories],
+  );
 
   // その他を表示するのは、カテゴリが未設定かつ、categoriesに含まれるidがリスト内のアイテムに設定されていない場合
   const a = list.some((item) => categories.some((c) => c.id === item.categoryId));
+
+  if (!sheet) {
+    return (
+      <div className="p-4">
+        <Link href="/shopping-list" className="inline-flex items-center gap-x-2 text-sm underline">
+          <ChevronLeft />
+          一覧へ戻る
+        </Link>
+        <div className="mt-4 text-sm text-neutral-500">リストが見つかりませんでした。</div>
+      </div>
+    );
+  }
 
   if (mode === modes.CHECK_LIST) {
     return (
@@ -338,7 +207,7 @@ export default function ShoppingListPage() {
             <Link href="/shopping-list" className="text-sm underline">
               <ChevronLeft />
             </Link>
-            <div className="font-bold">{name}</div>
+            <div className="font-bold">{sheet.name}</div>
           </div>
           <div className="flex items-center gap-x-4">
             <button onClick={() => setOpenAddItemDialog(true)}>
@@ -356,7 +225,15 @@ export default function ShoppingListPage() {
                 <DropdownMenuItem onClick={() => setShareDialog(true)}>
                   シートを共有
                 </DropdownMenuItem>
-                <DropdownMenuItem>シートを削除</DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-rose-600"
+                  onClick={() => {
+                    deleteSheet(sheet.id);
+                    router.push('/shopping-list');
+                  }}
+                >
+                  シートを削除
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -448,7 +325,7 @@ export default function ShoppingListPage() {
         </Dialog>
         <ShareDialog
           open={shareDialog}
-          shareId={shareId}
+          shareId={sheet.shareId}
           onOpenChange={setShareDialog}
           onSubmit={handleShare}
         />
