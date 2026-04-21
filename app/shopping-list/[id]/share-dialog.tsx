@@ -18,14 +18,14 @@ type Props = {
   open: boolean;
   shareId: string | null;
   onOpenChange: Dispatch<SetStateAction<boolean>>;
-  onSubmit: (name: string) => void;
+  onSubmit: () => void | Promise<void>;
 };
 
 export function ShareDialog({ open, shareId, onOpenChange, onSubmit }: Props) {
   const [disabled, setDisabled] = useState(false);
 
   const handleClick = () => {
-    onSubmit('a');
+    onSubmit();
   };
 
   useEffect(() => {
