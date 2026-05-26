@@ -1,9 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-// icons
 import { ChevronLeft, Ellipsis, GripVertical, Plus } from 'lucide-react';
-// components
+import {
+  DndContext,
+  type DragEndEvent,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+import { Button } from '@/shared/components/button';
 import {
   Dialog,
   DialogContent,
@@ -12,34 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/shared/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
+} from '@/shared/components/dropdown-menu';
+import { Input } from '@/shared/components/input';
+import { Label } from '@/shared/components/label';
 import { ShoppingCategoryModel } from '@/types/shopping-list';
-import {
-  closestCenter,
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 
 export function CategoryManagement({
   list,
@@ -61,38 +60,27 @@ export function CategoryManagement({
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
 
-  const handleAddItem = () => {
-    setValue('');
-    addShoppingCategory();
-    setOpen(false);
-  };
-
-  const addShoppingCategory = () => {
-    onAdd({ id: crypto.randomUUID(), name: value });
-  };
-
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
-
     if (over && active.id !== over.id) {
       const oldIndex = list.findIndex((item) => item.id === active.id);
       const newIndex = list.findIndex((item) => item.id === over.id);
-
-      const newArray = arrayMove(list, oldIndex, newIndex);
-      onUpdate(newArray);
+      onUpdate(arrayMove(list, oldIndex, newIndex));
     }
   };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   useEffect(() => {
     onSort();
-  }, [list]);
+  }, [list, onSort]);
+
+  const addShoppingCategory = () => {
+    onAdd({ id: crypto.randomUUID(), name: value });
+  };
 
   return (
     <>
@@ -108,14 +96,12 @@ export function CategoryManagement({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={list} strategy={verticalListSortingStrategy}>
             {list.map((item) => (
-              <div key={item.id}>
-                <CategoryItem
-                  key={item.id}
-                  item={item}
-                  onEdit={onEdit}
-                  onDelete={() => onDelete(item.id)}
-                />
-              </div>
+              <CategoryItem
+                key={item.id}
+                item={item}
+                onEdit={onEdit}
+                onDelete={() => onDelete(item.id)}
+              />
             ))}
           </SortableContext>
         </DndContext>
@@ -148,7 +134,8 @@ export function CategoryManagement({
                 disabled={value.trim() === ''}
                 onClick={() => {
                   setOpen(false);
-                  handleAddItem();
+                  addShoppingCategory();
+                  setValue('');
                 }}
               >
                 追加
@@ -171,27 +158,16 @@ function CategoryItem({
   onDelete: () => void;
 }) {
   const { id, name } = item;
-
   const [value, setValue] = useState(name);
   const [isEdit, setIsEdit] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
-
   const style = {
-    transform: CSS.Transform.toString(
-      transform
-        ? { ...transform, x: 0 } // ← 横方向を固定
-        : null,
-    ),
-    opacity: isDragging ? 0.5 : 1, // ← ドラッグ中は半透明に
+    transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null),
+    opacity: isDragging ? 0.5 : 1,
     transition,
-  };
-
-  const handleEdit = () => {
-    setIsEdit(false);
-    onEdit({ id, name: value });
   };
 
   return (
@@ -233,7 +209,14 @@ function CategoryItem({
             />
           </div>
           <DialogFooter>
-            <Button type="button" disabled={value.trim() === ''} onClick={handleEdit}>
+            <Button
+              type="button"
+              disabled={value.trim() === ''}
+              onClick={() => {
+                setIsEdit(false);
+                onEdit({ id, name: value });
+              }}
+            >
               変更を保存
             </Button>
           </DialogFooter>
