@@ -1,4 +1,4 @@
-import { SliceCreator } from '@/store/useBoundStore';
+import { SliceCreator } from '@/stores/useBoundStore';
 import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
 
 type ShoppingSheet = {
@@ -14,23 +14,14 @@ type State = {
 };
 
 type Action = {
-  // シートの追加
   addSheet: (name: string) => void;
-  // シート名の編集
   editSheet: (sheet: { id: string; name: string }) => void;
-  // シートの削除
   deleteSheet: (id: string) => void;
-
-  // 共有IDを発行
   issueShareId: (sheetId: string) => string | null;
-
-  // アイテム操作
   addItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
   editItem: (sheetId: string, item: ShoppingItemModel) => void;
   deleteItem: (sheetId: string, itemId: string) => void;
   setItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
-
-  // カテゴリ操作
   addCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
   editCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
   deleteCategory: (sheetId: string, categoryId: string) => void;
@@ -50,7 +41,6 @@ const sortItemsByCategory = (
   categories: ShoppingCategoryModel[],
 ): ShoppingItemModel[] => {
   const categoryOrderMap = new Map(categories.map((category, index) => [category.id, index]));
-
   return [...items].sort((a, b) => {
     const aOrder = categoryOrderMap.get(a.categoryId ?? '') ?? Infinity;
     const bOrder = categoryOrderMap.get(b.categoryId ?? '') ?? Infinity;
@@ -88,7 +78,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     const current = get().sheets.find((s) => s.id === sheetId);
     if (!current) return null;
     if (current.shareId) return current.shareId;
-
     const shareId = createId();
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
@@ -101,7 +90,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items.push({
         id: createId(),
         name: item.name,
@@ -115,7 +103,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) => (i.id === item.id ? item : i));
       target.items = sortItemsByCategory(target.items, target.categories);
     });
@@ -124,7 +111,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.filter((i) => i.id !== itemId);
     });
   },
@@ -132,7 +118,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) => (i.id === itemId ? { ...i, categoryId } : i));
       target.items = sortItemsByCategory(target.items, target.categories);
     });
@@ -156,7 +141,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) =>
         i.categoryId === categoryId ? { ...i, categoryId: null } : i,
       );

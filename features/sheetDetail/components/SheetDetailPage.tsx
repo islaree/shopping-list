@@ -1,9 +1,22 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, Ellipsis, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useShallow } from 'zustand/react/shallow';
 
+import { Button } from '@/shared/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/dialog';
+import { Input } from '@/shared/components/input';
+import { Label } from '@/shared/components/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,47 +27,34 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/shared/components/dropdown-menu';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { CategoryManagement } from './category-management';
-import { useParams, useRouter } from 'next/navigation';
+} from '@/shared/components/select';
+import { useBoundStore } from '@/stores/useBoundStore';
 import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
-import { ShareDialog } from './share-dialog';
-import { useBoundStore } from '@/store/useBoundStore';
-import { useShallow } from 'zustand/react/shallow';
+
+import { CategoryManagement } from './CategoryManagement';
+import { ShareDialog } from './ShareDialog';
 
 const modes = {
   CATEGORY_MANAGEMENT: 'category_management',
   CHECK_LIST: 'check_list',
 } as const;
 
-export default function ShoppingListPage() {
+export function SheetDetailPage() {
   const params = useParams();
   const router = useRouter();
   const sheetId = Array.isArray(params.id) ? params.id[0] : params.id;
-
   const [categoryValue, setCategoryValue] = useState<string | undefined>(undefined);
   const [value, setValue] = useState('');
   const [mode, setMode] = useState<(typeof modes)[keyof typeof modes]>(modes.CHECK_LIST);
   const [shareDialog, setShareDialog] = useState(false);
+  const [openAddItemDialog, setOpenAddItemDialog] = useState(false);
 
   const {
     sheet,
@@ -84,26 +84,19 @@ export default function ShoppingListPage() {
     })),
   );
 
-  // TODO: 共有機能を追加
   const shareShoppingList = async (shareId: string) => {
-    try {
-      await fetch('/api/shopping-list', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: sheet?.id ?? sheetId ?? '',
-          name: sheet?.name ?? '',
-          items: sheet?.items ?? [],
-          categories: sheet?.categories ?? [],
-          shareId,
-        }),
-      });
-    } catch (e) {
-      console.error('Failed to add shopping list:', e);
-      throw new Error('Failed to add shopping list');
-    }
+    const response = await fetch('/api/shopping-list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: sheet?.id ?? sheetId ?? '',
+        name: sheet?.name ?? '',
+        items: sheet?.items ?? [],
+        categories: sheet?.categories ?? [],
+        shareId,
+      }),
+    });
+    if (!response.ok) throw new Error('Failed to add shopping list');
   };
 
   const handleShare = async () => {
@@ -113,10 +106,6 @@ export default function ShoppingListPage() {
     await shareShoppingList(id);
   };
 
-  // チェックリスト追加ダイアログ
-  const [openAddItemDialog, setOpenAddItemDialog] = useState(false);
-
-  // アイテム操作
   const handleAddItem = () => {
     setValue('');
     setCategoryValue(undefined);
@@ -139,7 +128,6 @@ export default function ShoppingListPage() {
     setItemCategory(sheetId, id, categoryId);
   };
 
-  // カテゴリ操作
   const handleAddCategory = (newCategory: ShoppingCategoryModel) => {
     if (!sheetId) return;
     addCategory(sheetId, newCategory);
@@ -162,34 +150,28 @@ export default function ShoppingListPage() {
 
   const sortItemsByCategory = (
     items: ShoppingItemModel[],
-    _categories: ShoppingCategoryModel[],
+    categories: ShoppingCategoryModel[],
   ): ShoppingItemModel[] => {
-    const categoryOrderMap = new Map(_categories.map((category, index) => [category.id, index]));
-
-    return [...items].sort((a, b) => {
-      const aOrder = categoryOrderMap.get(a.categoryId ?? '') ?? Infinity;
-      const bOrder = categoryOrderMap.get(b.categoryId ?? '') ?? Infinity;
-      return aOrder - bOrder;
-    });
+    const categoryOrderMap = new Map(categories.map((category, index) => [category.id, index]));
+    return [...items].sort(
+      (a, b) =>
+        (categoryOrderMap.get(a.categoryId ?? '') ?? Infinity) -
+        (categoryOrderMap.get(b.categoryId ?? '') ?? Infinity),
+    );
   };
 
-  const sortItems = () => {
-    // no-op: store側で常にソート済み
-  };
-
+  const sortItems = () => {};
   const categories = sheet?.categories ?? [];
   const list = useMemo(
     () => sortItemsByCategory(sheet?.items ?? [], categories),
     [sheet?.items, categories],
   );
-
-  // その他を表示するのは、カテゴリが未設定かつ、categoriesに含まれるidがリスト内のアイテムに設定されていない場合
-  const a = list.some((item) => categories.some((c) => c.id === item.categoryId));
+  const hasOther = list.some((item) => categories.some((c) => c.id === item.categoryId));
 
   if (!sheet) {
     return (
       <div className="p-4">
-        <Link href="/shopping-list" className="inline-flex items-center gap-x-2 text-sm underline">
+        <Link href="/sheets" className="inline-flex items-center gap-x-2 text-sm underline">
           <ChevronLeft />
           一覧へ戻る
         </Link>
@@ -201,10 +183,9 @@ export default function ShoppingListPage() {
   if (mode === modes.CHECK_LIST) {
     return (
       <>
-        {/* header */}
         <div className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white px-4">
           <div className="flex items-center gap-x-2">
-            <Link href="/shopping-list" className="text-sm underline">
+            <Link href="/sheets" className="text-sm underline">
               <ChevronLeft />
             </Link>
             <div className="font-bold">{sheet.name}</div>
@@ -229,7 +210,7 @@ export default function ShoppingListPage() {
                   className="text-rose-600"
                   onClick={() => {
                     deleteSheet(sheet.id);
-                    router.push('/shopping-list');
+                    router.push('/sheets');
                   }}
                 >
                   シートを削除
@@ -238,44 +219,40 @@ export default function ShoppingListPage() {
             </DropdownMenu>
           </div>
         </div>
-        {/* body */}
-        <div>
-          <div className="flex justify-end px-4"></div>
-          <div className="mb-16 p-2">
-            {list.map((item, index) => (
-              <div key={index}>
-                {list[index - 1]?.categoryId !== item.categoryId && (
-                  <>
-                    {a && !categories.find((c) => c.id === item.categoryId)?.name && (
-                      <div className="relative my-5 h-[1px] w-full bg-neutral-200">
-                        <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
-                          <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
-                            その他
-                          </div>
+        <div className="mb-16 p-2">
+          {list.map((item, index) => (
+            <div key={index}>
+              {list[index - 1]?.categoryId !== item.categoryId && (
+                <>
+                  {hasOther && !categories.find((c) => c.id === item.categoryId)?.name && (
+                    <div className="relative my-5 h-[1px] w-full bg-neutral-200">
+                      <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
+                        <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
+                          その他
                         </div>
                       </div>
-                    )}
-                    {categories.find((c) => c.id === item.categoryId)?.name && (
-                      <div className="relative my-5 h-[1px] w-full bg-neutral-200">
-                        <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
-                          <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
-                            {categories.find((c) => c.id === item.categoryId)?.name}
-                          </div>
+                    </div>
+                  )}
+                  {categories.find((c) => c.id === item.categoryId)?.name && (
+                    <div className="relative my-5 h-[1px] w-full bg-neutral-200">
+                      <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
+                        <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
+                          {categories.find((c) => c.id === item.categoryId)?.name}
                         </div>
                       </div>
-                    )}
-                  </>
-                )}
-                <CheckListItem
-                  data={item}
-                  categories={categories}
-                  handleDeleteItem={handleDeleteItem}
-                  handleSelectCategory={handleSelectCategory}
-                  onEdit={handleEditItem}
-                />
-              </div>
-            ))}
-          </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <CheckListItem
+                data={item}
+                categories={categories}
+                handleDeleteItem={handleDeleteItem}
+                handleSelectCategory={handleSelectCategory}
+                onEdit={handleEditItem}
+              />
+            </div>
+          ))}
         </div>
         <Dialog open={openAddItemDialog} onOpenChange={setOpenAddItemDialog}>
           <DialogContent>
@@ -333,19 +310,17 @@ export default function ShoppingListPage() {
     );
   }
 
-  if (mode === modes.CATEGORY_MANAGEMENT) {
-    return (
-      <CategoryManagement
-        list={categories}
-        onChageMode={() => setMode(modes.CHECK_LIST)}
-        onAdd={handleAddCategory}
-        onEdit={handleEditCategory}
-        onDelete={handleDeleteCategory}
-        onUpdate={handleUpdateCategories}
-        onSort={sortItems}
-      />
-    );
-  }
+  return (
+    <CategoryManagement
+      list={categories}
+      onChageMode={() => setMode(modes.CHECK_LIST)}
+      onAdd={handleAddCategory}
+      onEdit={handleEditCategory}
+      onDelete={handleDeleteCategory}
+      onUpdate={handleUpdateCategories}
+      onSort={sortItems}
+    />
+  );
 }
 
 function CheckListItem({
