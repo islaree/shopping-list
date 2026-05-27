@@ -1,1 +1,5 @@
-export { SheetListPage as default } from '@/features/sheetList/components/SheetListPage';
+import { SheetsPage } from '@/features/sheetList/components/SheetsPage';
+
+export default function Page() {
+  return <SheetsPage />;
+}
