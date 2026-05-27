@@ -21,6 +21,7 @@ type Action = {
   addItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
   editItem: (sheetId: string, item: ShoppingItemModel) => void;
   deleteItem: (sheetId: string, itemId: string) => void;
+  setItems: (sheetId: string, items: ShoppingItemModel[]) => void;
   setItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
   addCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
   editCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
@@ -40,11 +41,13 @@ const sortItemsByCategory = (
   items: ShoppingItemModel[],
   categories: ShoppingCategoryModel[],
 ): ShoppingItemModel[] => {
+  const indexMap = new Map(items.map((item, index) => [item.id, index]));
   const categoryOrderMap = new Map(categories.map((category, index) => [category.id, index]));
   return [...items].sort((a, b) => {
     const aOrder = categoryOrderMap.get(a.categoryId ?? '') ?? Infinity;
     const bOrder = categoryOrderMap.get(b.categoryId ?? '') ?? Infinity;
-    return aOrder - bOrder;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0);
   });
 };
 
@@ -112,6 +115,13 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
       target.items = target.items.filter((i) => i.id !== itemId);
+    });
+  },
+  setItems: (sheetId: string, items: ShoppingItemModel[]) => {
+    set((state) => {
+      const target = state.sheets.find((s) => s.id === sheetId);
+      if (!target) return;
+      target.items = sortItemsByCategory(items, target.categories);
     });
   },
   setItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => {
