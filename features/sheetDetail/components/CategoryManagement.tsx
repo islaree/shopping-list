@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Ellipsis, GripVertical, Plus } from 'lucide-react';
+import { ChevronLeft, CornerDownLeft, Ellipsis, GripVertical, Plus } from 'lucide-react';
 import {
   DndContext,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
@@ -28,7 +30,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/shared/components/dialog';
 import {
   DropdownMenu,
@@ -57,8 +58,9 @@ export function CategoryManagement({
   onUpdate: (items: ShoppingCategoryModel[]) => void;
   onSort: () => void;
 }) {
-  const [value, setValue] = useState('');
-  const [open, setOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -67,6 +69,17 @@ export function CategoryManagement({
       const newIndex = list.findIndex((item) => item.id === over.id);
       onUpdate(arrayMove(list, oldIndex, newIndex));
     }
+    setActiveId(null);
+    setOverId(null);
+  };
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setActiveId(String(e.active.id));
+  };
+
+  const handleDragOver = (e: DragOverEvent) => {
+    const over = e.over;
+    setOverId(over ? String(over.id) : null);
   };
 
   const sensors = useSensors(
@@ -78,8 +91,11 @@ export function CategoryManagement({
     onSort();
   }, [list, onSort]);
 
-  const addShoppingCategory = () => {
-    onAdd({ id: crypto.randomUUID(), name: value });
+  const addShoppingCategory = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAdd({ id: crypto.randomUUID(), name: trimmed });
+    setNewCategoryName('');
   };
 
   return (
@@ -92,13 +108,21 @@ export function CategoryManagement({
           <div className="font-bold">カテゴリ管理</div>
         </div>
       </div>
-      <div className="px-2">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
           <SortableContext items={list} strategy={verticalListSortingStrategy}>
             {list.map((item) => (
               <CategoryItem
                 key={item.id}
                 item={item}
+                activeId={activeId}
+                overId={overId}
                 onEdit={onEdit}
                 onDelete={() => onDelete(item.id)}
               />
@@ -106,43 +130,34 @@ export function CategoryManagement({
           </SortableContext>
         </DndContext>
       </div>
-      <div className="px-2">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <div className="flex cursor-pointer items-center gap-x-2 rounded p-2 text-teal-400 hover:bg-teal-50">
-              <Plus />
-              <div className="font-bold">カテゴリを追加</div>
-            </div>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>カテゴリを追加</DialogTitle>
-              <DialogDescription />
-            </DialogHeader>
-            <div className="grid w-full max-w-sm items-center gap-2">
-              <Label htmlFor="name">カテゴリ名</Label>
-              <Input
-                id="name"
-                value={value}
-                placeholder="カテゴリ名を入力"
-                onChange={(e) => setValue(e.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                disabled={value.trim() === ''}
-                onClick={() => {
-                  setOpen(false);
-                  addShoppingCategory();
-                  setValue('');
-                }}
-              >
-                追加
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <div className="flex h-12 items-center gap-x-2 px-4">
+          <div className="text-neutral-400">
+            <Plus />
+          </div>
+          <input
+            className="w-full bg-transparent text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+            value={newCategoryName}
+            placeholder="カテゴリを追加"
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              if (e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              addShoppingCategory(e.currentTarget.value);
+            }}
+          />
+          {newCategoryName.trim() !== '' ? (
+            <button
+              type="button"
+              className="rounded p-1 text-teal-600 hover:bg-teal-50"
+              aria-label="カテゴリを追加"
+              onClick={() => addShoppingCategory(newCategoryName)}
+            >
+              <CornerDownLeft size={18} />
+            </button>
+          ) : null}
+        </div>
       </div>
     </>
   );
@@ -150,10 +165,14 @@ export function CategoryManagement({
 
 function CategoryItem({
   item,
+  activeId,
+  overId,
   onEdit,
   onDelete,
 }: {
   item: { id: string; name: string };
+  activeId: string | null;
+  overId: string | null;
   onEdit: (item: ShoppingCategoryModel) => void;
   onDelete: () => void;
 }) {
@@ -161,30 +180,39 @@ function CategoryItem({
   const [value, setValue] = useState(name);
   const [isEdit, setIsEdit] = useState(false);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-  });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
+    useSortable({
+      id: item.id,
+    });
   const style = {
     transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null),
     opacity: isDragging ? 0.5 : 1,
     transition,
   };
 
+  const showDropTarget = Boolean(
+    activeId && overId && activeId !== id && (isOver || overId === id),
+  );
+
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <div className="flex items-center justify-between gap-x-2 p-2">
-        <div className="flex items-center gap-x-2">
-          <div className="bg-neutral-100 p-1">
-            <GripVertical
-              {...listeners}
-              size={18}
-              className="cursor-grab touch-none text-neutral-400"
-            />
-          </div>
-          <div className="text-md">{name}</div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`relative border-b border-neutral-100 bg-white ${isDragging ? 'ring-2 ring-teal-200' : ''}`}
+    >
+      {showDropTarget ? <DropIndicator /> : null}
+      <div className="relative z-10 flex h-12 items-center justify-between gap-x-2 px-4">
+        <div className="flex items-center gap-x-3">
+          <GripVertical
+            {...listeners}
+            size={18}
+            className="cursor-grab touch-none text-neutral-300"
+          />
+          <div className="text-[15px]">{name}</div>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger className="rounded p-1 hover:bg-neutral-100">
             <Ellipsis />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -223,5 +251,11 @@ function CategoryItem({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function DropIndicator() {
+  return (
+    <div className="pointer-events-none absolute inset-y-1 right-2 left-2 rounded-md bg-teal-100/70 shadow-inner" />
   );
 }

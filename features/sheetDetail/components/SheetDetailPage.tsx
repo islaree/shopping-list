@@ -40,10 +40,13 @@ import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list'
 
 import { CategoryManagement } from './CategoryManagement';
 import { ShareDialog } from './ShareDialog';
+import { SheetDetailModeTabs } from './SheetDetailModeTabs';
+import { SheetEditing } from './SheetEditing';
 
 const modes = {
+  SHOPPING: 'shopping',
+  EDITING: 'editing',
   CATEGORY_MANAGEMENT: 'category_management',
-  CHECK_LIST: 'check_list',
 } as const;
 
 export function SheetDetailPage() {
@@ -52,7 +55,7 @@ export function SheetDetailPage() {
   const sheetId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [categoryValue, setCategoryValue] = useState<string | undefined>(undefined);
   const [value, setValue] = useState('');
-  const [mode, setMode] = useState<(typeof modes)[keyof typeof modes]>(modes.CHECK_LIST);
+  const [mode, setMode] = useState<(typeof modes)[keyof typeof modes]>(modes.SHOPPING);
   const [shareDialog, setShareDialog] = useState(false);
   const [openAddItemDialog, setOpenAddItemDialog] = useState(false);
 
@@ -63,6 +66,7 @@ export function SheetDetailPage() {
     addItem,
     editItem,
     deleteItem,
+    setItems,
     setItemCategory,
     addCategory,
     editCategory,
@@ -76,6 +80,7 @@ export function SheetDetailPage() {
       addItem: state.addItem,
       editItem: state.editItem,
       deleteItem: state.deleteItem,
+      setItems: state.setItems,
       setItemCategory: state.setItemCategory,
       addCategory: state.addCategory,
       editCategory: state.editCategory,
@@ -152,21 +157,45 @@ export function SheetDetailPage() {
     items: ShoppingItemModel[],
     categories: ShoppingCategoryModel[],
   ): ShoppingItemModel[] => {
+    const indexMap = new Map(items.map((item, index) => [item.id, index]));
     const categoryOrderMap = new Map(categories.map((category, index) => [category.id, index]));
-    return [...items].sort(
-      (a, b) =>
-        (categoryOrderMap.get(a.categoryId ?? '') ?? Infinity) -
-        (categoryOrderMap.get(b.categoryId ?? '') ?? Infinity),
-    );
+    return [...items].sort((a, b) => {
+      const aOrder = categoryOrderMap.get(a.categoryId ?? '') ?? Infinity;
+      const bOrder = categoryOrderMap.get(b.categoryId ?? '') ?? Infinity;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0);
+    });
   };
 
   const sortItems = () => {};
-  const categories = sheet?.categories ?? [];
+  const categories = useMemo(() => sheet?.categories ?? [], [sheet?.categories]);
   const list = useMemo(
     () => sortItemsByCategory(sheet?.items ?? [], categories),
     [sheet?.items, categories],
   );
   const hasOther = list.some((item) => categories.some((c) => c.id === item.categoryId));
+
+  const handleReorderItemsInCategory = (
+    categoryId: string | null,
+    newCategoryItems: ShoppingItemModel[],
+  ) => {
+    if (!sheetId || !sheet) return;
+    const byCategory = new Map<string | null, ShoppingItemModel[]>();
+    for (const item of sheet.items) {
+      const key = item.categoryId ?? null;
+      const current = byCategory.get(key) ?? [];
+      current.push(item);
+      byCategory.set(key, current);
+    }
+    byCategory.set(categoryId, newCategoryItems);
+
+    const next: ShoppingItemModel[] = [];
+    for (const category of sheet.categories) {
+      next.push(...(byCategory.get(category.id) ?? []));
+    }
+    next.push(...(byCategory.get(null) ?? []));
+    setItems(sheetId, next);
+  };
 
   if (!sheet) {
     return (
@@ -180,146 +209,161 @@ export function SheetDetailPage() {
     );
   }
 
-  if (mode === modes.CHECK_LIST) {
-    return (
-      <>
-        <div className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white px-4">
-          <div className="flex items-center gap-x-2">
-            <Link href="/sheets" className="text-sm underline">
-              <ChevronLeft />
-            </Link>
-            <div className="font-bold">{sheet.name}</div>
-          </div>
-          <div className="flex items-center gap-x-4">
-            <button onClick={() => setOpenAddItemDialog(true)}>
-              <Plus />
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Ellipsis />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setMode(modes.CATEGORY_MANAGEMENT)}>
-                  カテゴリを管理
-                </DropdownMenuItem>
-                <DropdownMenuItem>タイトルを編集</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShareDialog(true)}>
-                  シートを共有
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-rose-600"
-                  onClick={() => {
-                    deleteSheet(sheet.id);
-                    router.push('/sheets');
-                  }}
-                >
-                  シートを削除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        <div className="mb-16 p-2">
-          {list.map((item, index) => (
-            <div key={index}>
-              {list[index - 1]?.categoryId !== item.categoryId && (
-                <>
-                  {hasOther && !categories.find((c) => c.id === item.categoryId)?.name && (
-                    <div className="relative my-5 h-[1px] w-full bg-neutral-200">
-                      <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
-                        <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
-                          その他
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {categories.find((c) => c.id === item.categoryId)?.name && (
-                    <div className="relative my-5 h-[1px] w-full bg-neutral-200">
-                      <div className="absolute top-1/2 left-0 flex h-4 w-full -translate-y-1/2 items-center justify-start">
-                        <div className="rounded bg-white px-2 py-0.5 text-[13px] text-neutral-500">
-                          {categories.find((c) => c.id === item.categoryId)?.name}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-              <CheckListItem
-                data={item}
-                categories={categories}
-                handleDeleteItem={handleDeleteItem}
-                handleSelectCategory={handleSelectCategory}
-                onEdit={handleEditItem}
-              />
-            </div>
-          ))}
-        </div>
-        <Dialog open={openAddItemDialog} onOpenChange={setOpenAddItemDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>チェックアイテムを追加</DialogTitle>
-              <DialogDescription />
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="name">カテゴリ</Label>
-                <Select onValueChange={setCategoryValue} disabled={categories.length === 0}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="カテゴリを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid w-full max-w-sm items-center gap-2">
-                <Label htmlFor="name">アイテム名</Label>
-                <Input
-                  id="name"
-                  value={value}
-                  placeholder="アイテム名を入力"
-                  onChange={(e) => setValue(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="default"
-                disabled={value.trim() === ''}
-                onClick={() => {
-                  setOpenAddItemDialog(false);
-                  handleAddItem();
-                }}
-              >
-                追加
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <ShareDialog
-          open={shareDialog}
-          shareId={sheet.shareId}
-          onOpenChange={setShareDialog}
-          onSubmit={handleShare}
-        />
-      </>
-    );
-  }
-
   return (
-    <CategoryManagement
-      list={categories}
-      onChageMode={() => setMode(modes.CHECK_LIST)}
-      onAdd={handleAddCategory}
-      onEdit={handleEditCategory}
-      onDelete={handleDeleteCategory}
-      onUpdate={handleUpdateCategories}
-      onSort={sortItems}
-    />
+    <>
+      {(mode === modes.SHOPPING || mode === modes.EDITING) && (
+        <>
+          <div className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white px-4">
+            <div className="flex items-center gap-x-2">
+              <Link href="/sheets" className="text-sm underline">
+                <ChevronLeft />
+              </Link>
+              <div className="font-bold">{sheet.name}</div>
+            </div>
+            <div className="flex items-center gap-x-4">
+              {mode === modes.SHOPPING ? (
+                <button onClick={() => setOpenAddItemDialog(true)}>
+                  <Plus />
+                </button>
+              ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <Ellipsis />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setMode(modes.CATEGORY_MANAGEMENT)}>
+                    カテゴリを管理
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>タイトルを編集</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShareDialog(true)}>
+                    シートを共有
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-rose-600"
+                    onClick={() => {
+                      deleteSheet(sheet.id);
+                      router.push('/sheets');
+                    }}
+                  >
+                    シートを削除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          {mode === modes.SHOPPING ? (
+            <>
+              <div className="mb-16 divide-y divide-neutral-100">
+                {list.map((item, index) => (
+                  <div key={index}>
+                    {list[index - 1]?.categoryId !== item.categoryId && (
+                      <>
+                        {hasOther && !categories.find((c) => c.id === item.categoryId)?.name && (
+                          <div className="flex h-8 items-center border-y border-neutral-200 bg-neutral-50 px-4 text-[13px] text-neutral-500">
+                            その他
+                          </div>
+                        )}
+                        {categories.find((c) => c.id === item.categoryId)?.name && (
+                          <div className="flex h-8 items-center border-y border-neutral-200 bg-neutral-50 px-4 text-[13px] text-neutral-500">
+                            {categories.find((c) => c.id === item.categoryId)?.name}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <CheckListItem
+                      data={item}
+                      categories={categories}
+                      handleDeleteItem={handleDeleteItem}
+                      handleSelectCategory={handleSelectCategory}
+                      onEdit={handleEditItem}
+                    />
+                  </div>
+                ))}
+              </div>
+              <Dialog open={openAddItemDialog} onOpenChange={setOpenAddItemDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>チェックアイテムを追加</DialogTitle>
+                    <DialogDescription />
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid w-full max-w-sm items-center gap-2">
+                      <Label htmlFor="name">カテゴリ</Label>
+                      <Select onValueChange={setCategoryValue} disabled={categories.length === 0}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="カテゴリを選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid w-full max-w-sm items-center gap-2">
+                      <Label htmlFor="name">アイテム名</Label>
+                      <Input
+                        id="name"
+                        value={value}
+                        placeholder="アイテム名を入力"
+                        onChange={(e) => setValue(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="default"
+                      disabled={value.trim() === ''}
+                      onClick={() => {
+                        setOpenAddItemDialog(false);
+                        handleAddItem();
+                      }}
+                    >
+                      追加
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          ) : (
+            <SheetEditing
+              sheetId={sheet.id}
+              items={sheet.items}
+              categories={sheet.categories}
+              onAddItem={addItem}
+              onDeleteItem={deleteItem}
+              onReorderItemsInCategory={(_sheetId, categoryId, newItems) =>
+                handleReorderItemsInCategory(categoryId, newItems)
+              }
+            />
+          )}
+          <ShareDialog
+            open={shareDialog}
+            shareId={sheet.shareId}
+            onOpenChange={setShareDialog}
+            onSubmit={handleShare}
+          />
+        </>
+      )}
+
+      {mode === modes.CATEGORY_MANAGEMENT && (
+        <div className="pb-16">
+          <CategoryManagement
+            list={categories}
+            onChageMode={() => setMode(modes.SHOPPING)}
+            onAdd={handleAddCategory}
+            onEdit={handleEditCategory}
+            onDelete={handleDeleteCategory}
+            onUpdate={handleUpdateCategories}
+            onSort={sortItems}
+          />
+        </div>
+      )}
+
+      <SheetDetailModeTabs value={mode} onValueChange={setMode} />
+    </>
   );
 }
 
@@ -348,27 +392,34 @@ function CheckListItem({
 
   return (
     <>
-      <div className={`flex items-center justify-between gap-x-2 p-2`}>
-        <div className="flex items-center gap-x-2">
+      <div className={`flex h-14 items-center justify-between gap-x-2 px-4`}>
+        <button
+          type="button"
+          className="flex h-full flex-1 items-center gap-x-2 text-left"
+          onClick={() => onEdit({ ...data, checked: !checked })}
+        >
           <input
             type="checkbox"
             checked={checked}
-            onChange={(e) => onEdit({ ...data, checked: e.target.checked })}
             className="hidden"
             id={`checkbox-${id}`}
+            readOnly
           />
-          <label
-            htmlFor={`checkbox-${id}`}
+          <div
             className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded border ${
-              checked ? 'border-teal-400 bg-teal-400' : 'border-neutral-300 bg-white'
+              checked ? 'border-[#22C55E] bg-[#22C55E]' : 'border-neutral-200 bg-neutral-50'
             }`}
           >
             {checked && <Check size={16} color="white" />}
-          </label>
+          </div>
           <div className="text-md">{name}</div>
-        </div>
+        </button>
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
             <Ellipsis />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

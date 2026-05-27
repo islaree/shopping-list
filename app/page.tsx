@@ -1,5 +1,10 @@
-import { SheetListPage } from '@/features/sheetList/components/SheetListPage';
+import Link from 'next/link';
 
 export default function Home() {
-  return <SheetListPage />;
+  return (
+    <>
+      home画面
+      <Link href="/sheets">シート一覧→</Link>
+    </>
+  );
 }
