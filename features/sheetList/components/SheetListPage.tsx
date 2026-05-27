@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-// icons
 import { Plus } from 'lucide-react';
-// components
-import { AddShoppingListDialog } from './add-shopping-list-dialog';
-import { ShoppingList } from './shopping-list';
-import { useBoundStore } from '@/store/useBoundStore';
 import { useShallow } from 'zustand/react/shallow';
 
-export default function ShoppingListsPage() {
+import { useBoundStore } from '@/stores/useBoundStore';
+
+import { AddSheetDialog } from './AddSheetDialog';
+import { SheetListTitle } from './SheetListTitle';
+import { ShoppingListCard } from './ShoppingListCard';
+
+export function SheetListPage() {
   const [openShoppingListDialog, setOpenShoppingListDialog] = useState(false);
 
   const { sheets, addSheet, editSheet, deleteSheet } = useBoundStore(
@@ -24,10 +25,15 @@ export default function ShoppingListsPage() {
   return (
     <>
       <div className="py-10">
-        <div className="px-4 text-[13px] text-neutral-400">買い物リスト一覧</div>
+        <SheetListTitle title="買い物リスト一覧" />
         <div className="mt-2 px-2">
           {sheets.map(({ id, name }) => (
-            <ShoppingList key={id} data={{ id, name }} onEdit={editSheet} onDelete={deleteSheet} />
+            <ShoppingListCard
+              key={id}
+              data={{ id, name }}
+              onEdit={editSheet}
+              onDelete={deleteSheet}
+            />
           ))}
           <div
             className="inline-flex cursor-pointer items-center gap-x-2 rounded p-2 text-teal-400 hover:bg-teal-50"
@@ -38,7 +44,7 @@ export default function ShoppingListsPage() {
           </div>
         </div>
       </div>
-      <AddShoppingListDialog
+      <AddSheetDialog
         open={openShoppingListDialog}
         onOpenChange={setOpenShoppingListDialog}
         onSubmit={addSheet}

@@ -1,27 +1,28 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/shared/components/button';
 import {
-  DialogHeader,
-  DialogFooter,
   Dialog,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/shared/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Ellipsis, StickyNote } from 'lucide-react';
+} from '@/shared/components/dropdown-menu';
+import { Input } from '@/shared/components/input';
+import { Label } from '@/shared/components/label';
+import { StickyNote, Ellipsis } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-export function ShoppingList({
+export function ShoppingListCard({
   data,
   onEdit,
   onDelete,
@@ -34,11 +35,6 @@ export function ShoppingList({
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
 
-  const handleEdit = () => {
-    onEdit({ id, name: value });
-  };
-  const handleDelete = () => onDelete(id);
-
   useEffect(() => {
     setValue(name);
   }, [open, name]);
@@ -46,7 +42,7 @@ export function ShoppingList({
   return (
     <>
       <div className="flex items-center justify-between gap-x-2 rounded p-2 hover:bg-neutral-100">
-        <Link href={`/shopping-list/${id}`} className="flex flex-1 items-center gap-2">
+        <Link href={`/sheets/${id}`} className="flex flex-1 items-center gap-2">
           <StickyNote className="text-neutral-400" />
           {name}
         </Link>
@@ -59,7 +55,7 @@ export function ShoppingList({
               共有リンクをコピー
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setOpen(true)}>リスト名を編集</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDelete}>リストを削除</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDelete(id)}>リストを削除</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -88,7 +84,7 @@ export function ShoppingList({
               disabled={value.trim() === ''}
               onClick={() => {
                 setOpen(false);
-                handleEdit();
+                onEdit({ id, name: value });
               }}
             >
               変更を保存

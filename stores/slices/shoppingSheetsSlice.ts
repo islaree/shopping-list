@@ -1,4 +1,4 @@
-import { SliceCreator } from '@/store/useBoundStore';
+import { SliceCreator } from '@/stores/useBoundStore';
 import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
 
 type ShoppingSheet = {
@@ -14,23 +14,15 @@ type State = {
 };
 
 type Action = {
-  // シートの追加
   addSheet: (name: string) => void;
-  // シート名の編集
   editSheet: (sheet: { id: string; name: string }) => void;
-  // シートの削除
   deleteSheet: (id: string) => void;
-
-  // 共有IDを発行
   issueShareId: (sheetId: string) => string | null;
-
-  // アイテム操作
   addItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
   editItem: (sheetId: string, item: ShoppingItemModel) => void;
   deleteItem: (sheetId: string, itemId: string) => void;
+  setItems: (sheetId: string, items: ShoppingItemModel[]) => void;
   setItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
-
-  // カテゴリ操作
   addCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
   editCategory: (sheetId: string, category: ShoppingCategoryModel) => void;
   deleteCategory: (sheetId: string, categoryId: string) => void;
@@ -49,12 +41,13 @@ const sortItemsByCategory = (
   items: ShoppingItemModel[],
   categories: ShoppingCategoryModel[],
 ): ShoppingItemModel[] => {
+  const indexMap = new Map(items.map((item, index) => [item.id, index]));
   const categoryOrderMap = new Map(categories.map((category, index) => [category.id, index]));
-
   return [...items].sort((a, b) => {
     const aOrder = categoryOrderMap.get(a.categoryId ?? '') ?? Infinity;
     const bOrder = categoryOrderMap.get(b.categoryId ?? '') ?? Infinity;
-    return aOrder - bOrder;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0);
   });
 };
 
@@ -88,7 +81,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     const current = get().sheets.find((s) => s.id === sheetId);
     if (!current) return null;
     if (current.shareId) return current.shareId;
-
     const shareId = createId();
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
@@ -101,7 +93,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items.push({
         id: createId(),
         name: item.name,
@@ -115,7 +106,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) => (i.id === item.id ? item : i));
       target.items = sortItemsByCategory(target.items, target.categories);
     });
@@ -124,15 +114,20 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.filter((i) => i.id !== itemId);
+    });
+  },
+  setItems: (sheetId: string, items: ShoppingItemModel[]) => {
+    set((state) => {
+      const target = state.sheets.find((s) => s.id === sheetId);
+      if (!target) return;
+      target.items = sortItemsByCategory(items, target.categories);
     });
   },
   setItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => {
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) => (i.id === itemId ? { ...i, categoryId } : i));
       target.items = sortItemsByCategory(target.items, target.categories);
     });
@@ -156,7 +151,6 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
-
       target.items = target.items.map((i) =>
         i.categoryId === categoryId ? { ...i, categoryId: null } : i,
       );

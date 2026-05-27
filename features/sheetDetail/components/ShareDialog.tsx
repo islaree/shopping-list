@@ -1,18 +1,17 @@
 'use client';
 
-// react
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
-// components
-import { Button } from '@/components/ui/button';
+
+import { Button } from '@/shared/components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+} from '@/shared/components/dialog';
+import { Input } from '@/shared/components/input';
 
 type Props = {
   open: boolean;
@@ -23,10 +22,6 @@ type Props = {
 
 export function ShareDialog({ open, shareId, onOpenChange, onSubmit }: Props) {
   const [disabled, setDisabled] = useState(false);
-
-  const handleClick = () => {
-    onSubmit();
-  };
 
   useEffect(() => {
     if (shareId) setDisabled(true);
@@ -46,7 +41,7 @@ export function ShareDialog({ open, shareId, onOpenChange, onSubmit }: Props) {
           {shareId ? (
             <Button type="button">共有するリストを更新</Button>
           ) : (
-            <Button type="button" disabled={disabled} onClick={handleClick}>
+            <Button type="button" disabled={disabled} onClick={onSubmit}>
               共有リンクを発行
             </Button>
           )}

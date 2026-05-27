@@ -1,19 +1,18 @@
 'use client';
 
-// react
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
-// components
-import { Button } from '@/components/ui/button';
+
+import { Button } from '@/shared/components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from '@/shared/components/dialog';
+import { Input } from '@/shared/components/input';
+import { Label } from '@/shared/components/label';
 
 type Props = {
   open: boolean;
@@ -22,7 +21,7 @@ type Props = {
   onClose: () => void;
 };
 
-export function AddShoppingListDialog({ open, onOpenChange, onSubmit, onClose }: Props) {
+export function AddSheetDialog({ open, onOpenChange, onSubmit, onClose }: Props) {
   const [name, setName] = useState('');
 
   const handleClick = () => {
