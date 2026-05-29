@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CornerDownLeft, Ellipsis, GripVertical, Plus } from 'lucide-react';
+import { CornerDownLeft, Ellipsis, GripVertical, Plus, X } from 'lucide-react';
 import {
   DndContext,
   type DragEndEvent,
@@ -37,6 +37,7 @@ export function SheetEditing({
   onAddItem,
   onDeleteItem,
   onReorderItemsInCategory,
+  onClose,
 }: {
   sheetId: string;
   items: ShoppingItemModel[];
@@ -48,6 +49,7 @@ export function SheetEditing({
     categoryId: string | null,
     items: ShoppingItemModel[],
   ) => void;
+  onClose: () => void;
 }) {
   const groups = useMemo(() => {
     const byCategory = new Map<string | null, ShoppingItemModel[]>();
@@ -72,22 +74,30 @@ export function SheetEditing({
   }, [items, categories]);
 
   return (
-    <div className="mb-16">
-      {groups.map(({ category, items: categoryItems }) => (
-        <CategorySection
-          key={category.id ?? 'uncategorized'}
-          sheetId={sheetId}
-          categoryId={category.id}
-          categoryName={category.name}
-          items={categoryItems}
-          onAddItem={onAddItem}
-          onDeleteItem={onDeleteItem}
-          onReorder={(newCategoryItems) =>
-            onReorderItemsInCategory(sheetId, category.id, newCategoryItems)
-          }
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex h-14 items-center justify-between px-4">
+        <div className="font-bold">シート編集中</div>
+        <button onClick={onClose}>
+          <X />
+        </button>
+      </div>
+      <div className="mb-16">
+        {groups.map(({ category, items: categoryItems }) => (
+          <CategorySection
+            key={category.id ?? 'uncategorized'}
+            sheetId={sheetId}
+            categoryId={category.id}
+            categoryName={category.name}
+            items={categoryItems}
+            onAddItem={onAddItem}
+            onDeleteItem={onDeleteItem}
+            onReorder={(newCategoryItems) =>
+              onReorderItemsInCategory(sheetId, category.id, newCategoryItems)
+            }
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -200,11 +210,7 @@ function EditableItemRow({ item, onDelete }: { item: ShoppingItemModel; onDelete
       }`}
     >
       <div className="flex items-center gap-x-3">
-        <GripVertical
-          {...listeners}
-          size={20}
-          className="cursor-grab touch-none text-neutral-800"
-        />
+        <GripVertical {...listeners} className="size-4 cursor-grab touch-none text-neutral-800" />
         <div className="text-md">{item.name}</div>
       </div>
       <DropdownMenu>
