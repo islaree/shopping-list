@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, CornerDownLeft, Ellipsis, GripVertical, Plus } from 'lucide-react';
+import { CornerDownLeft, Ellipsis, GripVertical, Plus, X } from 'lucide-react';
 import {
   DndContext,
   type DragEndEvent,
@@ -43,20 +43,20 @@ import { ShoppingCategoryModel } from '@/types/shopping-list';
 
 export function CategoryManagement({
   list,
-  onChageMode,
   onAdd,
   onEdit,
   onDelete,
   onUpdate,
   onSort,
+  onClose,
 }: {
   list: { id: string; name: string }[];
-  onChageMode: () => void;
   onAdd: (category: ShoppingCategoryModel) => void;
   onEdit: (item: ShoppingCategoryModel) => void;
   onDelete: (id: string) => void;
   onUpdate: (items: ShoppingCategoryModel[]) => void;
   onSort: () => void;
+  onClose: () => void;
 }) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -101,12 +101,10 @@ export function CategoryManagement({
   return (
     <>
       <div className="flex h-14 items-center justify-between bg-white px-4">
-        <div className="flex items-center gap-x-2">
-          <button className="text-sm underline" onClick={onChageMode}>
-            <ChevronLeft />
-          </button>
-          <div className="font-bold">カテゴリ管理</div>
-        </div>
+        <div className="font-bold">カテゴリ編集中</div>
+        <button className="text-sm underline" onClick={onClose}>
+          <X />
+        </button>
       </div>
       <div>
         <DndContext
