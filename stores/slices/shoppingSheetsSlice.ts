@@ -1,5 +1,5 @@
 import { SliceCreator } from '@/stores/useBoundStore';
-import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
+import { ShoppingCategoryModel, ShoppingItemModel, ShoppingListModel } from '@/types/shopping-list';
 
 type ShoppingSheet = {
   id: string;
@@ -15,8 +15,10 @@ type State = {
 
 type Action = {
   addSheet: (name: string) => void;
+  importSheet: (sheet: ShoppingListModel) => void;
   editSheet: (sheet: { id: string; name: string }) => void;
   deleteSheet: (id: string) => void;
+  setShareId: (sheetId: string, shareId: string | null) => void;
   issueShareId: (sheetId: string) => string | null;
   addItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
   editItem: (sheetId: string, item: ShoppingItemModel) => void;
@@ -65,6 +67,28 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
       state.sheets.push(newSheet);
     });
   },
+  importSheet: (sheet: ShoppingListModel) => {
+    set((state) => {
+      const target = state.sheets.find((current) => current.id === sheet.id);
+      const nextSheet: ShoppingSheet = {
+        id: sheet.id,
+        name: sheet.name,
+        shareId: sheet.shareId,
+        categories: [...(sheet.categories ?? [])],
+        items: sortItemsByCategory([...(sheet.items ?? [])], [...(sheet.categories ?? [])]),
+      };
+
+      if (!target) {
+        state.sheets.push(nextSheet);
+        return;
+      }
+
+      target.name = nextSheet.name;
+      target.shareId = nextSheet.shareId;
+      target.categories = nextSheet.categories;
+      target.items = nextSheet.items;
+    });
+  },
   editSheet: ({ id, name }: { id: string; name: string }) => {
     set((state) => {
       const target = state.sheets.find((sheet) => sheet.id === id);
@@ -77,17 +101,17 @@ export const createShoppingSheetsSlice: SliceCreator<ShoppingSheetsSlice> = (set
       state.sheets = state.sheets.filter((sheet) => sheet.id !== id);
     });
   },
-  issueShareId: (sheetId: string) => {
-    const current = get().sheets.find((s) => s.id === sheetId);
-    if (!current) return null;
-    if (current.shareId) return current.shareId;
-    const shareId = createId();
+  setShareId: (sheetId: string, shareId: string | null) => {
     set((state) => {
       const target = state.sheets.find((s) => s.id === sheetId);
       if (!target) return;
       target.shareId = shareId;
     });
-    return shareId;
+  },
+  issueShareId: (sheetId: string) => {
+    const current = get().sheets.find((s) => s.id === sheetId);
+    if (!current) return null;
+    return current.shareId;
   },
   addItem: (sheetId: string, item: { name: string; categoryId: string | null }) => {
     set((state) => {
