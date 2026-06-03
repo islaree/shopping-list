@@ -5,12 +5,16 @@ const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
-  const query = searchParams.get('shareId');
+  const query = searchParams.get('id');
+
+  if (!query) {
+    return Response.json({ error: 'id is required' }, { status: 400 });
+  }
 
   const result = await sql`
-      SELECT *
-      FROM shopping_list
-      WHERE share_id = ${query}
+      SELECT id, sheet
+      FROM sheets
+      WHERE id = ${query}
       LIMIT 1;
     `;
   const data = result[0];
@@ -18,17 +22,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: Request) {
-  const { name, items, categories, shareId } = await req.json();
-
-  const listData = {
-    name,
-    items,
-    categories,
-  };
+  const { sheet } = await req.json();
+  const id = crypto.randomUUID();
+  const sheetJson = JSON.stringify(sheet);
 
   const result = await sql`
-    INSERT INTO shopping_list (share_id, list)
-    VALUES (${shareId}, ${listData})
+    INSERT INTO sheets (id, sheet)
+    VALUES (${id}, ${sheetJson})
     RETURNING *;
   `;
 

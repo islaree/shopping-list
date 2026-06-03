@@ -9,8 +9,10 @@ import {
 } from '@/shared/components/dropdown-menu';
 import Link from 'next/link';
 import { useState } from 'react';
+import { ShoppingListModel } from '@/types/shopping-list';
 
 type Props = {
+  sheet: ShoppingListModel;
   name: string;
   href: string;
   count: number;
@@ -18,11 +20,24 @@ type Props = {
   isAllChecked: boolean;
   onDelete: () => void;
   onEdit: (name: string) => void;
+  onOpen: () => void;
 };
 
-export function SheetsItem({ name, count, href, isEmpty, isAllChecked, onDelete, onEdit }: Props) {
+export function SheetsItem({
+  sheet,
+  name,
+  count,
+  href,
+  isEmpty,
+  isAllChecked,
+  onDelete,
+  onEdit,
+  onOpen,
+}: Props) {
   const [isEdit, setIsEdit] = useState(false);
   const [value, setValue] = useState(name);
+
+  console.log(sheet);
 
   return (
     <div className={`flex h-14 items-center gap-x-2 px-4 ${isEdit ? 'bg-white' : 'bg-white'}`}>
@@ -97,7 +112,10 @@ export function SheetsItem({ name, count, href, isEmpty, isAllChecked, onDelete,
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => setIsEdit(true)}>リスト名を編集</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDelete}>リストを削除</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onOpen}>シートを共有</DropdownMenuItem>
+            <DropdownMenuItem className="" onSelect={onDelete}>
+              リストを削除
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
