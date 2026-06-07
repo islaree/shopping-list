@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, Ellipsis, GripVertical, Plus, X } from 'lucide-react';
 import {
   DndContext,
@@ -24,6 +24,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/shared/components/dropdown-menu';
 import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
@@ -35,7 +39,9 @@ export function SheetEditing({
   items,
   categories,
   onAddItem,
+  onEditItem,
   onDeleteItem,
+  onSetItemCategory,
   onReorderItemsInCategory,
   onClose,
 }: {
@@ -43,7 +49,9 @@ export function SheetEditing({
   items: ShoppingItemModel[];
   categories: ShoppingCategoryModel[];
   onAddItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
+  onEditItem: (sheetId: string, item: ShoppingItemModel) => void;
   onDeleteItem: (sheetId: string, itemId: string) => void;
+  onSetItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
   onReorderItemsInCategory: (
     sheetId: string,
     categoryId: string | null,
@@ -89,8 +97,11 @@ export function SheetEditing({
             categoryId={category.id}
             categoryName={category.name}
             items={categoryItems}
+            categories={categories}
             onAddItem={onAddItem}
+            onEditItem={onEditItem}
             onDeleteItem={onDeleteItem}
+            onSetItemCategory={onSetItemCategory}
             onReorder={(newCategoryItems) =>
               onReorderItemsInCategory(sheetId, category.id, newCategoryItems)
             }
@@ -106,19 +117,26 @@ function CategorySection({
   categoryId,
   categoryName,
   items,
+  categories,
   onAddItem,
+  onEditItem,
   onDeleteItem,
+  onSetItemCategory,
   onReorder,
 }: {
   sheetId: string;
   categoryId: string | null;
   categoryName: string;
   items: ShoppingItemModel[];
+  categories: ShoppingCategoryModel[];
   onAddItem: (sheetId: string, item: { name: string; categoryId: string | null }) => void;
+  onEditItem: (sheetId: string, item: ShoppingItemModel) => void;
   onDeleteItem: (sheetId: string, itemId: string) => void;
+  onSetItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
   onReorder: (items: ShoppingItemModel[]) => void;
 }) {
   const [newItemName, setNewItemName] = useState('');
+  const skipBlurCommitRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -141,6 +159,10 @@ function CategorySection({
     setNewItemName('');
   };
 
+  const commitNewItem = (value: string) => {
+    addItem(value);
+  };
+
   return (
     <div className="">
       <div className="flex h-8 items-center gap-x-2 border-y border-neutral-200 bg-neutral-50 px-4 py-2 text-[13px] text-neutral-500">
@@ -152,7 +174,11 @@ function CategorySection({
             {items.map((item) => (
               <EditableItemRow
                 key={item.id}
+                sheetId={sheetId}
                 item={item}
+                categories={categories}
+                onEditItem={onEditItem}
+                onSetItemCategory={onSetItemCategory}
                 onDelete={() => onDeleteItem(sheetId, item.id)}
               />
             ))}
@@ -167,11 +193,19 @@ function CategorySection({
             value={newItemName}
             placeholder="新規アイテム追加"
             onChange={(e) => setNewItemName(e.target.value)}
+            onBlur={() => {
+              if (skipBlurCommitRef.current) {
+                skipBlurCommitRef.current = false;
+                return;
+              }
+              commitNewItem(newItemName);
+            }}
             onKeyDown={(e) => {
               if (e.key !== 'Enter') return;
               if (e.nativeEvent.isComposing) return;
               e.preventDefault();
-              addItem(e.currentTarget.value);
+              skipBlurCommitRef.current = true;
+              commitNewItem(e.currentTarget.value);
             }}
           />
           {newItemName.trim() !== '' ? (
@@ -190,14 +224,47 @@ function CategorySection({
   );
 }
 
-function EditableItemRow({ item, onDelete }: { item: ShoppingItemModel; onDelete: () => void }) {
+function EditableItemRow({
+  item,
+  categories,
+  onEditItem,
+  onSetItemCategory,
+  sheetId,
+  onDelete,
+}: {
+  sheetId: string;
+  item: ShoppingItemModel;
+  categories: ShoppingCategoryModel[];
+  onEditItem: (sheetId: string, item: ShoppingItemModel) => void;
+  onSetItemCategory: (sheetId: string, itemId: string, categoryId: string | null) => void;
+  onDelete: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
+  const [value, setValue] = useState(item.name);
+  const skipBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    setValue(item.name);
+  }, [item.id, item.name]);
+
   const style = {
+    position: 'relative' as const,
     transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null),
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 1 : 1,
     transition,
+    zIndex: isDragging ? 1000 : 0,
+  };
+
+  const commit = (nextValue: string) => {
+    const trimmed = nextValue.trim();
+    if (!trimmed) {
+      setValue(item.name);
+      return;
+    }
+    if (trimmed === item.name) return;
+    onEditItem(sheetId, { ...item, name: trimmed });
   };
 
   return (
@@ -205,19 +272,62 @@ function EditableItemRow({ item, onDelete }: { item: ShoppingItemModel; onDelete
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`flex h-14 items-center justify-between gap-x-2 border-b border-neutral-100 bg-white px-4 ${
-        isDragging ? 'ring-2 ring-teal-200' : ''
+      className={`flex h-14 items-center justify-between gap-x-2 border-b border-neutral-100 bg-white pr-4 ${
+        isDragging ? 'ring-2 ring-emerald-400' : ''
       }`}
     >
-      <div className="flex items-center gap-x-3">
-        <GripVertical {...listeners} className="size-4 cursor-grab touch-none text-neutral-800" />
-        <div className="text-md">{item.name}</div>
+      <div className="flex h-full flex-1 items-center">
+        <button {...listeners} className="h-full px-4">
+          <GripVertical className="size-4 cursor-grab touch-none text-neutral-800" />
+        </button>
+        <input
+          value={value}
+          className="text-md w-full min-w-0 flex-1 bg-transparent focus-visible:outline-none"
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => {
+            if (skipBlurCommitRef.current) {
+              skipBlurCommitRef.current = false;
+              return;
+            }
+            commit(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            if (e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            skipBlurCommitRef.current = true;
+            commit(e.currentTarget.value);
+            e.currentTarget.blur();
+          }}
+        />
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger className="rounded p-1 hover:bg-neutral-100">
           <Ellipsis size={20} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {categories.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>カテゴリ変更</DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  {categories
+                    .filter((category) => category.id !== item.categoryId)
+                    .map((category) => (
+                      <DropdownMenuItem
+                        key={category.id}
+                        onSelect={() => onSetItemCategory(sheetId, item.id, category.id)}
+                      >
+                        {category.name}
+                      </DropdownMenuItem>
+                    ))}
+                  <DropdownMenuItem onSelect={() => onSetItemCategory(sheetId, item.id, null)}>
+                    その他（カテゴリ未設定）
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          )}
           <DropdownMenuItem onClick={onDelete}>削除</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
