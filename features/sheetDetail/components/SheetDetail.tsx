@@ -39,7 +39,7 @@ export function SheetDetail({ id }: Props) {
     editItem,
     deleteItem,
     setItems,
-    // setItemCategory,
+    setItemCategory,
     addCategory,
     editCategory,
     deleteCategory,
@@ -241,7 +241,9 @@ export function SheetDetail({ id }: Props) {
           items={sheet.items}
           categories={sheet.categories}
           onAddItem={addItem}
+          onEditItem={editItem}
           onDeleteItem={deleteItem}
+          onSetItemCategory={setItemCategory}
           onReorderItemsInCategory={(_sheetId, categoryId, newItems) =>
             handleReorderItemsInCategory(categoryId, newItems)
           }
