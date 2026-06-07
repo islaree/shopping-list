@@ -23,13 +23,13 @@ export function SheetDetailItem({ id, name, checked, onEdit }: Props) {
           readOnly
         />
         <div
-          className={`flex size-5 cursor-pointer items-center justify-center rounded-[6px] border ${
+          className={`flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-[6px] border ${
             checked ? 'border-emerald-400 bg-emerald-400' : 'border-[#F6F6F6] bg-[#FAFAFA]'
           } `}
         >
           {checked && <Check className="size-3.5 stroke-4 text-white" />}
         </div>
-        <div className="text-md">{name}</div>
+        <div className="text-md truncate">{name}</div>
       </button>
     </div>
   );
