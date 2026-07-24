@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     title: 'Kuromoji',
     description: 'シンプルな買い物リストアプリ',
     type: 'website',
+    images: ['/opengraph-image.png'],
   },
   twitter: {
     card: 'summary',

@@ -6,12 +6,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/components/dropdown-menu';
-import { useBoundStore } from '@/stores/useBoundStore';
+import { useBoundStore } from '@/stores/use-bound-store';
 import { Bookmark, ChevronLeft, Ellipsis } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
-import { SheetDetailItem } from './SheetDetailItem';
+import { SheetDetailItem } from '../components/sheet-detail-item';
 import {
   Accordion,
   AccordionContent,
@@ -19,15 +19,15 @@ import {
   AccordionTrigger,
 } from '@/shared/components/accordion';
 import { useMemo, useState } from 'react';
-import { SheetEditing } from './SheetEditing';
+import { SheetEditing } from '../components/SheetEditing';
 import { ShoppingCategoryModel, ShoppingItemModel } from '@/types/shopping-list';
-import { CategoryManagement } from './CategoryManagement';
+import { CategoryManagement } from '../components/CategoryManagement';
 
 type Props = {
   id: string;
 };
 
-export function SheetDetail({ id }: Props) {
+export function SheetDetailPage({ id }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 

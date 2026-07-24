@@ -1,10 +1,5 @@
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-export default function Home() {
-  return (
-    <>
-      home画面
-      <Link href="/sheets">シート一覧→</Link>
-    </>
-  );
+export default function RootPage() {
+  return redirect('/sheets');
 }

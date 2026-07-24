@@ -23,7 +23,7 @@ type Props = {
   onOpen: () => void;
 };
 
-export function SheetsItem({
+export function SheetListItem({
   sheet,
   name,
   count,

@@ -2,7 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-import { createShoppingSheetsSlice, ShoppingSheetsSlice } from './slices/shoppingSheetsSlice';
+import { createShoppingSheetsSlice, ShoppingSheetsSlice } from './slices/shopping-sheets-slice';
 
 export type SliceCreator<T> = StateCreator<T, [['zustand/immer', never]], [], T>;
 

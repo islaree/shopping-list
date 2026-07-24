@@ -1,15 +1,15 @@
 'use client';
 
-import { useBoundStore } from '@/stores/useBoundStore';
+import { useBoundStore } from '@/stores/use-bound-store';
 import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { CornerDownLeft, Plus } from 'lucide-react';
-import { SheetsItem } from './SheetsItem';
+import { SheetListItem } from '../components/sheet-list-item';
 import { ShoppingItemModel, ShoppingListModel } from '@/types/shopping-list';
-import { SheetShareDialog } from './SheetShareDialog';
+import { SheetShareDialog } from '../components/SheetShareDialog';
 
-export function SheetsPage() {
+export function SheetListPage() {
   const [selectedSheet, setSelectedSheet] = useState<ShoppingListModel | null>(null);
   const { sheets, addSheet, editSheet, deleteSheet } = useBoundStore(
     useShallow((state) => ({
@@ -74,7 +74,7 @@ export function SheetsPage() {
             <div className="text-[13px] text-neutral-400">シート一覧</div>
             <div className="mt-3 divide-y divide-[#F6F6F6] overflow-hidden rounded-[12px] border border-[#F6F6F6]">
               {sheets.map((sheet) => (
-                <SheetsItem
+                <SheetListItem
                   // 個別のシートに関する処理
                   key={sheet.id}
                   sheet={sheet}

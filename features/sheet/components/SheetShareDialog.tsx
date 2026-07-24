@@ -1,6 +1,6 @@
 'use client';
 
-import { useBoundStore } from '@/stores/useBoundStore';
+import { useBoundStore } from '@/stores/use-bound-store';
 import { ShoppingListModel } from '@/types/shopping-list';
 import { Button } from '@/shared/components/button';
 import { Input } from '@/shared/components/input';
