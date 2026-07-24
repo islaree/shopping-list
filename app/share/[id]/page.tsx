@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 
-import SharePage from '@/features/share/components/SharePage';
 import { getSharedSheetById } from '@/lib/shared-sheet';
+import { SharePage } from '@/features/share/pages/share-page';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -17,7 +17,7 @@ export default async function Page({ params }: Props) {
 
   return (
     <SharePage
-      shoppingList={{
+      sheet={{
         id: crypto.randomUUID(),
         ...sharedSheet.sheet,
         shareId: sharedSheet.id,

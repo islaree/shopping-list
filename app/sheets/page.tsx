@@ -1,5 +1,5 @@
-import { SheetsPage } from '@/features/sheetList/components/SheetsPage';
+import { SheetListPage } from '@/features/sheet/pages/sheet-list-page';
 
 export default function Page() {
-  return <SheetsPage />;
+  return <SheetListPage />;
 }

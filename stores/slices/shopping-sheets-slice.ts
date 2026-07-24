@@ -1,4 +1,4 @@
-import { SliceCreator } from '@/stores/useBoundStore';
+import { SliceCreator } from '@/stores/use-bound-store';
 import { ShoppingCategoryModel, ShoppingItemModel, ShoppingListModel } from '@/types/shopping-list';
 
 type ShoppingSheet = {

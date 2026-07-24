@@ -1,4 +1,4 @@
-import { SheetDetail } from '@/features/sheetDetail/components/SheetDetail';
+import { SheetDetailPage } from '@/features/sheet/pages/sheet-detail-page';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -7,5 +7,5 @@ type Props = {
 export default async function Page({ params }: Props) {
   const { id } = await params;
 
-  return <SheetDetail id={id} />;
+  return <SheetDetailPage id={id} />;
 }
