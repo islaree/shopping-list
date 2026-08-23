@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CornerDownLeft, Ellipsis, GripVertical, Plus, X } from 'lucide-react';
 import {
   DndContext,
@@ -47,7 +47,6 @@ export function CategoryManagement({
   onEdit,
   onDelete,
   onUpdate,
-  onSort,
   onClose,
 }: {
   list: { id: string; name: string }[];
@@ -55,7 +54,6 @@ export function CategoryManagement({
   onEdit: (item: ShoppingCategoryModel) => void;
   onDelete: (id: string) => void;
   onUpdate: (items: ShoppingCategoryModel[]) => void;
-  onSort: () => void;
   onClose: () => void;
 }) {
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -86,10 +84,6 @@ export function CategoryManagement({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  useEffect(() => {
-    onSort();
-  }, [list, onSort]);
 
   const addShoppingCategory = (name: string) => {
     const trimmed = name.trim();
