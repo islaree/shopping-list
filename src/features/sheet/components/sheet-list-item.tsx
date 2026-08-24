@@ -75,7 +75,11 @@ export function SheetListItem({
           />
         </div>
       ) : (
-        <Link href={href} className="flex h-full min-w-0 flex-1 items-center gap-x-2">
+        <Link
+          href={href}
+          prefetch={true}
+          className="flex h-full min-w-0 flex-1 items-center gap-x-2"
+        >
           <div className="relative shrink-0">
             <StickyNote className="size-5 text-[#DFDFDF]" />
             {!isEmpty && isAllChecked && (
